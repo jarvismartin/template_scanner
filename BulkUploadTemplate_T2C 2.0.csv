@@ -1,4 +1,0 @@
-﻿Name,Message,Description
-Good,"Hello, this is a perfectly normal test message!!!",False Positive Test
-Bad,para reducir sus pagos de préstamo y poner su cuenta al día está a punto de expirar. Utilice el siguiente enlace para ver la oferta {URL} O llame a LoanMart al 888-700-9266 ahora para ver cómo podemos ayudarle ahorrar dinero. Para excluirse responda PARA,"ó, á, í"
-Ugly,"Congratulations, your loan is approved! Please call 770-476-6400 x {EXT} so we can walk you through your next steps. To optout reply STOP",Weird space character
