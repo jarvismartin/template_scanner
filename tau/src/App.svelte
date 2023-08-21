@@ -30,6 +30,7 @@
   }
 
   function fileComplete(results, file) {
+    scanning = true;
     console.log("FILE COMPLETE RESULTS:", results);
 
     const { data, errors, meta } = results;
