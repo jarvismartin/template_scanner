@@ -8,6 +8,7 @@
   let scanning = false;
   let non_gsm = [];
   let csv_url: string;
+  let headers = "";
 
   function handleDragOver(e: DragEvent) {
     // In markup
@@ -34,6 +35,11 @@
     console.log("FILE COMPLETE RESULTS:", results);
 
     const { data, errors, meta } = results;
+
+    // Capture Column Headers
+    headers = meta.fields;
+    headers.concat("non_gsm");
+    console.log("HEADERS:", headers);
 
     if (errors.length > 0) {
       console.warn("PARSE ERRORS:", results.errors);
@@ -89,7 +95,8 @@
       if (diff.size > 0) {
         const diff_str = Array.from(diff).join(" ");
         let updated_row = row;
-        updated_row["diff"] = diff_str;
+        updated_row["non_gsm"] = diff_str;
+        console.log("UPDATED ROW:", updated_row);
         acc.push(updated_row);
       }
 
@@ -97,7 +104,7 @@
       if (diff.size === 0) {
         if (row[msg_col].length > 160) {
           let updated_row = row;
-          updated_row["diff"] = updated_row["diff"] ? updated_row["diff"] : "";
+          updated_row["non_gsm"] = "";
           acc.push(updated_row);
         }
       }
@@ -112,16 +119,16 @@
     // Prepare Report CSV
 
     // Add column Headers
-    const non_gsm_headers = [
-      "non-GSM Characters",
-      "Name",
-      "Message",
-      "Description",
-    ];
-    const updated_non_gsm = [non_gsm_headers, ...non_gsm];
+    // const non_gsm_headers = [
+    //   "non-GSM Characters",
+    //   "Name",
+    //   "Message",
+    //   "Description",
+    // ];
+    const updated_non_gsm = [headers, ...non_gsm];
 
     // Convert non_gsm to csv
-    const non_gsm_csv = Papa.unparse(updated_non_gsm);
+    const non_gsm_csv = Papa.unparse(non_gsm);
     console.log("NON GSM CSV:", non_gsm_csv);
 
     // Blob
@@ -276,8 +283,8 @@
             class="flex flex-col items-center justify-between w-32 py-2 border-r-2"
           >
             <div class="flex">
-              {#each item.diff as diff}
-                <pre class="mx-2 underline">{diff}</pre>
+              {#each item.non_gsm as uni}
+                <pre class="mx-2 underline">{uni}</pre>
               {/each}
             </div>
             <!-- Msg Length -->
@@ -291,7 +298,9 @@
           <div class="flex flex-wrap flex-1 pl-4">
             {#each item.Message ? item.Message : item.TemplateFrom.concat(" ").concat(item.TemplateMessage) as char}
               <pre
-                class="my-2 border-2 border-gray-600 {item.diff.includes(char)
+                class="my-2 border-2 border-gray-600 {item.non_gsm.includes(
+                  char
+                )
                   ? 'bg-amber-500 text-slate-700 font-semibold'
                   : ''}">{char}</pre>
             {/each}
