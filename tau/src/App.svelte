@@ -80,9 +80,10 @@
           ? row[msg_col]
           : row["TemplateFrom"].concat(" ").concat(row[msg_col]);
 
-      let s = new Set(msg);
+      let s: Set<string> = new Set(msg);
 
-      let non_gsm_chars = [];
+      let non_gsm_chars: Array<string> = [];
+
       for (const char of s) {
         const cc = char.charCodeAt(0);
         if (cc > 128) {
