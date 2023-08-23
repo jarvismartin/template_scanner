@@ -9,6 +9,8 @@
   let non_gsm = [];
   let csv_url: string;
   let headers = "";
+  let limit = 100;
+  let min = 0;
 
   function handleDragOver(e: DragEvent) {
     // In markup
@@ -23,7 +25,7 @@
     // e.preventDefault();
     dropped = e.dataTransfer.files;
     console.log("dropped:", dropped);
-    scanUpload(e);
+    parseFile(e);
   }
 
   function setDifference(a, b) {
@@ -45,86 +47,76 @@
       console.warn("PARSE ERRORS:", results.errors);
     }
 
-    // // FileReader Object
-    // const reader = new FileReader();
-
-    // // Load event
-    // reader.onload = function (event) {
-    //   // Read File Data
-    //   const csv_data = event.target.result;
-    //   let { data, errors, meta } = Papa.parse(csv_data);
-    //   if (errors.length > 0) {
-    //     console.error("papa errors:", errors);
-    //     // return (msg =
-    //     //   "There was a problem. Please CANCEL and try again later.");
-    //   }
-    //   console.log("PAPA DATA:", data);
-    //   console.log("PAPA META:", meta);
-
-    // Look at column headers
-    // console.log("data[0]:", data[0]);
-
     // Determine which column has the message
     let msg_col = "Message"; // Default per the upload template
 
     const mc = meta.fields.indexOf("Message");
     msg_col = mc > -1 ? msg_col : "TextMessage";
-    console.log("MSG COL:", typeof msg_col);
-
-    // data.forEach((item) => {
-    //   console.log("item:", item);
-    //   console.log("item[msg_col]:", item[msg_col]);
-    //   // Convert message to set
-    //   let s = new Set(item[msg_col]);
-    //   console.log("s:", s);
-
-    //   let diff = setDifference(s, gsm_set);
-    //   console.log("diff:", diff);
-    // });
+    console.log("MSG COL:", msg_col);
 
     // Find templates with non-GSM chars
     function find_non_gsm(acc, row) {
-      let s = new Set(
+      // function find_non_gsm(row) {
+      const msg =
         msg_col === "Message"
           ? row[msg_col]
-          : row["TemplateFrom"].concat(" ").concat(row[msg_col])
-      );
-      let diff = setDifference(s, gsm_set);
+          : row["TemplateFrom"].concat(" ").concat(row[msg_col]);
 
-      // Non-GSM
-      if (diff.size > 0) {
-        const diff_str = Array.from(diff).join(" ");
-        let updated_row = row;
-        updated_row["non_gsm"] = diff_str;
-        console.log("UPDATED ROW:", updated_row);
-        acc.push(updated_row);
-      }
+      let s = new Set(msg);
 
-      // Multi-part
-      if (diff.size === 0) {
-        if (row[msg_col].length > 160) {
-          let updated_row = row;
-          updated_row["non_gsm"] = "";
-          acc.push(updated_row);
+      let non_gsm_chars = [];
+      for (const char of s) {
+        const cc = char.charCodeAt(0);
+        if (cc > 128) {
+          console.error("CHAR:", char);
+          non_gsm_chars.push(char);
         }
       }
 
+      // let diff = setDifference(s, gsm_set);
+      // if (diff.size > 0) {
+      //   console.log("DIFF:", diff);
+      // }
+
+      // Non-GSM
+      // if (diff.size > 0) {
+      if (non_gsm_chars.length > 0) {
+        // const diff_str = Array.from(diff).join(" ");
+        const diff_str = Array.from(non_gsm_chars).join(" ");
+        let updated_row = row;
+        updated_row["non_gsm"] = diff_str;
+        // console.log("UPDATED ROW:", updated_row);
+        acc.push(updated_row);
+        // non_gsm.push(updated_row);
+      }
+
+      // Multi-part
+      // if (diff.size === 0 && msg.length > 160) {
+      if (non_gsm_chars.length === 0 && msg.length > 160) {
+        let updated_row = row;
+        updated_row["non_gsm"] = "";
+        acc.push(updated_row);
+        // non_gsm.push(updated_row);
+      }
+
       return acc;
+      // return;
     }
     non_gsm = data.reduce(find_non_gsm, []);
     console.log("non_gsm:", non_gsm);
 
+    // TODO -- use for loop for performance
+    // Then test with OutboundReport download
+    // for (let i = 0; i < data.length; i++) {
+    //   find_non_gsm(data[i]);
+    // }
+    // data.forEach((row) => {
+    //   find_non_gsm(row);
+    // });
+
     scanning = false;
 
     // Prepare Report CSV
-
-    // Add column Headers
-    // const non_gsm_headers = [
-    //   "non-GSM Characters",
-    //   "Name",
-    //   "Message",
-    //   "Description",
-    // ];
     const updated_non_gsm = [headers, ...non_gsm];
 
     // Convert non_gsm to csv
@@ -137,13 +129,15 @@
     });
     // URL
     csv_url = URL.createObjectURL(blob);
+
+    console.log("AT THE END non_gsm:", non_gsm);
   }
 
   // // Read file as string
   // reader.readAsText(file);
   // }
 
-  function scanUpload(e) {
+  function parseFile(e) {
     scanning = true;
 
     const files =
@@ -176,6 +170,17 @@
 
     // Remove element from DOM
     document.body.removeChild(tempLink);
+  }
+
+  function handlePagination(type) {
+    console.log("PAGINATION type:", type);
+    if (type === "inc") {
+      min = Math.min(min + limit, non_gsm.length - 1);
+    }
+
+    if (type === "dec") {
+      min = Math.max(min - limit, 0);
+    }
   }
 </script>
 
@@ -221,7 +226,7 @@
           accept=".csv"
           bind:files
           hidden
-          on:change={scanUpload}
+          on:change={parseFile}
         />
       </label>
     {:else}
@@ -234,7 +239,7 @@
             Possible issues detected in <strong
               class="mx-2 text-xl text-amber-800"
               >{non_gsm.length}
-            </strong> of your templates.
+            </strong> of your messages.
           </div>
           <!-- <div>Please check the templates in the report with our</div>
           <a
@@ -268,6 +273,65 @@
       </div>
     {/if}
   </div>
+  {#if non_gsm.length > 100}
+    <div
+      class="sticky top-0 flex items-center justify-between text-xs bg-white/80"
+    >
+      <div class="flex-1">
+        {#if min > 0}
+          <button
+            class="flex items-center justify-center py-2 bg-lime-500 active:opacity-70"
+            on:click={() => handlePagination("dec")}
+          >
+            <!-- heroicons chevron-left -->
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="w-6 h-6"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15.75 19.5L8.25 12l7.5-7.5"
+              />
+            </svg>
+            <span class="pr-2">Prev 100</span>
+          </button>
+        {/if}
+      </div>
+      <div class="flex-1 text-center">
+        {min} - {min + limit} / {non_gsm.length}
+      </div>
+      <div class="flex justify-end flex-1">
+        <button
+          class="flex items-center justify-center py-2 bg-lime-500 active:opacity-70"
+          on:click={() => {
+            handlePagination("inc");
+          }}
+        >
+          <span class="pl-2">Next 100</span>
+          <!-- heroicons.com chevron-right -->
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="w-6 h-6"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M8.25 4.5l7.5 7.5-7.5 7.5"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  {/if}
   {#if non_gsm.length > 0}
     <div
       class="flex flex-col flex-wrap flex-1 my-4 overflow-y-auto border-gray-700 bg-black/70 text-white/90"
@@ -277,35 +341,37 @@
         <div class="w-32 text-center border-r-2">Info</div>
         <div class="flex-1 text-center">Message</div>
       </div>
-      {#each non_gsm as item}
-        <div class="flex border-b-2">
-          <div
-            class="flex flex-col items-center justify-between w-32 py-2 border-r-2"
-          >
-            <div class="flex">
-              {#each item.non_gsm as uni}
-                <pre class="mx-2 underline">{uni}</pre>
+      {#each non_gsm as item, i}
+        {#if i >= min && i < min + limit}
+          <div class="flex border-b-2">
+            <div
+              class="flex flex-col items-center justify-between w-32 py-2 border-r-2"
+            >
+              <div class="flex">
+                {#each item.non_gsm as uni}
+                  <pre class="mx-2 underline">{uni}</pre>
+                {/each}
+              </div>
+              <!-- Msg Length -->
+              <div>
+                {item.Message
+                  ? item.Message.length
+                  : item.TemplateFrom.concat(" ").concat(item.TemplateMessage)
+                      .length} chars
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center flex-1 pl-4">
+              {#each item.Message ? item.Message : item.TemplateFrom.concat(" ").concat(item.TemplateMessage) as char}
+                <pre
+                  class="my-2 border-2 border-gray-600 {item.non_gsm.includes(
+                    char
+                  )
+                    ? 'bg-amber-500 text-slate-700 font-semibold'
+                    : ''}">{char}</pre>
               {/each}
             </div>
-            <!-- Msg Length -->
-            <div>
-              {item.Message
-                ? item.Message.length
-                : item.TemplateFrom.concat(" ").concat(item.TemplateMessage)
-                    .length} chars
-            </div>
           </div>
-          <div class="flex flex-wrap flex-1 pl-4">
-            {#each item.Message ? item.Message : item.TemplateFrom.concat(" ").concat(item.TemplateMessage) as char}
-              <pre
-                class="my-2 border-2 border-gray-600 {item.non_gsm.includes(
-                  char
-                )
-                  ? 'bg-amber-500 text-slate-700 font-semibold'
-                  : ''}">{char}</pre>
-            {/each}
-          </div>
-        </div>
+        {/if}
       {/each}
     </div>
   {/if}
