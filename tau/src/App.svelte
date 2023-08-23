@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { gsm_set } from "./lib/gsm_chars";
+  // import { gsm_set } from "./lib/gsm_chars";
   import { fade } from "svelte/transition";
   import Papa from "papaparse";
 
@@ -11,6 +11,24 @@
   let headers = "";
   let limit = 100;
   let min = 0;
+
+  // These are the GSM chars that
+  // count as 2 characters
+  const gsm_set_extension = [
+    124, // | (pipe)
+    94, // ^
+    8364, // €
+    123, // {
+    125, // }
+    12, // FormFeed
+    91, // [
+    126, // ~
+    93, // ]
+    92, // \
+  ];
+  // IS SS2 EVEN RELEVANT HERE???
+  // What about CR2???
+  // \ Needs to be escaped (\\) for charCodeAt()
 
   function handleDragOver(e: DragEvent) {
     // In markup
@@ -68,7 +86,6 @@
       for (const char of s) {
         const cc = char.charCodeAt(0);
         if (cc > 128) {
-          console.error("CHAR:", char);
           non_gsm_chars.push(char);
         }
       }
@@ -92,11 +109,28 @@
 
       // Multi-part
       // if (diff.size === 0 && msg.length > 160) {
-      if (non_gsm_chars.length === 0 && msg.length > 160) {
-        let updated_row = row;
-        updated_row["non_gsm"] = "";
-        acc.push(updated_row);
-        // non_gsm.push(updated_row);
+      if (non_gsm_chars.length === 0) {
+        // Calculate msg length
+        let extra = 0;
+        for (let char of msg) {
+          if (gsm_set_extension.includes(char)) {
+            extra += 1;
+            console.log("EXTRA:", extra);
+          }
+        }
+        const total_msg_length = msg.length + extra;
+
+        if (msg.length != total_msg_length) {
+          console.log("TOTAL MSG LENGTH:", total_msg_length);
+          console.log("MSG LENGTH:", msg.length);
+        }
+
+        if (total_msg_length > 160) {
+          let updated_row = row;
+          updated_row["non_gsm"] = "";
+          acc.push(updated_row);
+          // non_gsm.push(updated_row);
+        }
       }
 
       return acc;
